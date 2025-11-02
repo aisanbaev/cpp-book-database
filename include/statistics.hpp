@@ -17,36 +17,47 @@
 namespace bookdb {
 
 template <BookContainerLike T, typename Comparator = TransparentStringLess>
-auto buildAuthorHistogramFlat(const BookDatabase<T> &cont, Comparator comp = {}) {
-    std::flat_map<std::string, int, Comparator> histogram_flat(comp);
+auto buildAuthorHistogramFlat(const BookDatabase<T> &db, Comparator comp = {}) {
+    std::flat_map<std::string, int, Comparator> histogram(comp);
 
-    for (const auto &book : cont.GetBooks()) {
-        histogram_flat[std::string(book.author)]++;
+    for (const auto &book : db) {
+        auto it = histogram.find(book.author);
+        if (it != histogram.end()) {
+            it->second++;
+        } else {
+            histogram.emplace(std::string(book.author), 1);
+        }
     }
 
-    return histogram_flat;
+    return histogram;
 }
+
+class GenreStats {
+public:
+    void AddRating(double rating) {
+        total_rating_ += rating;
+        ++count_;
+    }
+    double Average() const { return count_ > 0 ? total_rating_ / count_ : 0.0; }
+
+private:
+    double total_rating_ = 0.0;
+    size_t count_ = 0;
+};
 
 template <BookIterator I, BookSentinel<I> S>
 auto calculateGenreRatings(I first, S last) {
-    std::flat_map<Genre, std::pair<double, size_t>> genreStats;
+    std::flat_map<Genre, GenreStats> genreStats;
 
     for (auto it = first; it != last; ++it) {
         const auto &book = *it;
-        auto it_stats = genreStats.find(book.genre);
-        if (it_stats != genreStats.end()) {
-            it_stats->second.first += book.rating;
-            it_stats->second.second++;
-        } else {
-            genreStats.insert({book.genre, {book.rating, 1}});
-        }
+        auto [it_stats, inserted] = genreStats.try_emplace(book.genre);
+        it_stats->second.AddRating(book.rating);
     }
 
     std::flat_map<Genre, double> result;
     for (const auto &[genre, stats] : genreStats) {
-        if (stats.second > 0) {
-            result.insert({genre, stats.first / stats.second});
-        }
+        result.insert({genre, stats.Average()});
     }
 
     return result;
@@ -63,24 +74,17 @@ double calculateAverageRating(const BookDatabase<T> &cont) {
 }
 
 template <BookContainerLike T>
-auto sampleRandomBooks(const BookDatabase<T> &cont, typename BookDatabase<T>::size_type count) {
-    if (count > cont.size()) {
+auto sampleRandomBooks(const BookDatabase<T> &db, typename BookDatabase<T>::size_type count) {
+    if (count > db.size()) {
         throw std::invalid_argument("Sample count exceeds database size");
     }
 
-    std::vector<std::reference_wrapper<const Book>> all_books;
-    all_books.reserve(cont.size());
-    for (const auto &book : cont) {
-        all_books.emplace_back(book);
-    }
+    std::vector<std::reference_wrapper<const Book>> sampled_books;
+    sampled_books.reserve(count);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-
-    std::vector<std::reference_wrapper<const Book>> sampled_books;
-    sampled_books.reserve(count);
-    std::sample(all_books.begin(), all_books.end(), std::back_inserter(sampled_books), count, gen);
-
+    std::sample(db.begin(), db.end(), std::back_inserter(sampled_books), count, gen);
     return sampled_books;
 }
 
@@ -92,14 +96,8 @@ auto getTopNBy(BookDatabase<T> &db, size_t n, Comparator comp) {
 
     std::sort(db.begin(), db.end(), [&comp](const Book &a, const Book &b) { return comp(b, a); });
 
-    std::vector<std::reference_wrapper<const Book>> top_books;
-    auto end_it = std::next(db.begin(), std::min(n, db.size()));
-    top_books.reserve(std::distance(db.begin(), end_it));
-    for (auto it = db.begin(); it != end_it; ++it) {
-        top_books.emplace_back(*it);
-    }
-
-    return top_books;
+    n = std::min(n, db.size());
+    return std::vector<std::reference_wrapper<const Book>>(db.begin(), std::next(db.begin(), n));
 }
 
 }  // namespace bookdb

@@ -26,12 +26,12 @@ constexpr auto GenreIs(Genre g) noexcept {
 
 template <typename... Predicates>
 constexpr auto all_of(Predicates... predicates) noexcept {
-    return [predicates...](const Book &book) { return (predicates(book) && ...); };
+    return [... ps = std::move(predicates)](const Book &book) { return (ps(book) && ...); };
 }
 
 template <typename... Predicates>
 constexpr auto any_of(Predicates... predicates) noexcept {
-    return [predicates...](const Book &book) { return (predicates(book) || ...); };
+    return [... ps = std::move(predicates)](const Book &book) { return (ps(book) || ...); };
 }
 
 template <BookIterator Iterator, BookSentinel<Iterator> Sentinel, BookPredicate Predicate>

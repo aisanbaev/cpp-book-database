@@ -69,7 +69,6 @@ TEST(StatisticsTest, SampleRandomBooks) {
     auto sampled = sampleRandomBooks(db, sample_size);
 
     EXPECT_EQ(sampled.size(), sample_size);
-    EXPECT_EQ(sampled.size(), sample_size);
     EXPECT_FALSE(sampled.empty());
 
     EXPECT_THROW(sampleRandomBooks(db, db.size() + 1), std::invalid_argument);

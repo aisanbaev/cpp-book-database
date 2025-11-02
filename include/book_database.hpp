@@ -64,8 +64,9 @@ public:
     }
 
     void PushBack(Book &&book) {
+        std::string author_str = std::string(book.author);
         books_.push_back(std::move(book));
-        authors_.insert(books_.back().author);
+        authors_.insert(std::move(author_str));
     }
 
     template <typename... Args>
