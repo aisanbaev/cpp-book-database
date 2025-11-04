@@ -1,7 +1,6 @@
 #pragma once
 
-#include <string_view>
-#include <unordered_set>
+#include <set>
 #include <vector>
 
 #include "book.hpp"
@@ -25,7 +24,7 @@ public:
     using size_type = typename BookContainer::size_type;
     using difference_type = typename BookContainer::difference_type;
 
-    using AuthorContainer = std::unordered_set<std::string_view, TransparentStringHash, TransparentStringEqual>;
+    using AuthorContainer = std::set<std::string, TransparentStringLess>;
 
     BookDatabase() = default;
 
@@ -60,19 +59,21 @@ public:
 
     void PushBack(const Book &book) {
         books_.push_back(book);
-        authors_.insert(book.author);
+        auto [it, inserted] = authors_.insert(std::string(book.author));
+        books_.back().author = *it;
     }
 
     void PushBack(Book &&book) {
-        std::string author_str = std::string(book.author);
         books_.push_back(std::move(book));
-        authors_.insert(std::move(author_str));
+        auto [it, inserted] = authors_.insert(std::string(books_.back().author));
+        books_.back().author = *it;
     }
 
     template <typename... Args>
     decltype(auto) EmplaceBack(Args &&...args) {
         auto &new_book = books_.emplace_back(std::forward<Args>(args)...);
-        authors_.insert(new_book.author);
+        auto [it, inserted] = authors_.insert(std::string(new_book.author));
+        new_book.author = *it;
         return new_book;
     }
 
